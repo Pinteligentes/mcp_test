@@ -144,6 +144,36 @@ def _jsonrpc_error(req_id: Any, code: int, message: str, data: Optional[Any] = N
     })
 
 
+async def _handle_jsonrpc(payload: Dict[str, Any]) -> JSONResponse:
+    # Handle a single JSON-RPC request object, returning a JSONResponse
+    if not isinstance(payload, dict):
+        return _jsonrpc_error(None, code=-32600, message="Invalid Request: expected object")
+
+    # Be compatible with clients that omit 'jsonrpc' or 'id'
+    req_id = payload.get("id")
+    jsonrpc = payload.get("jsonrpc") or "2.0"
+    method = payload.get("method")
+    params = payload.get("params") or {}
+
+    if jsonrpc != "2.0":
+        return _jsonrpc_error(req_id, code=-32600, message="Invalid Request: jsonrpc must be '2.0'")
+
+    try:
+        # Accept method aliases used by some MCP clients
+        if method in ("tools/list", "tools.list"):
+            result = _tools_list()
+            return _jsonrpc_result(req_id, result)
+        elif method in ("tools/call", "tools.call"):
+            result = await _tools_call(params)
+            return _jsonrpc_result(req_id, result)
+        else:
+            return _jsonrpc_error(req_id, code=-32601, message="Method not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        return _jsonrpc_error(req_id, code=-32000, message=f"Server error: {e}")
+
+
 def _tools_list() -> Dict[str, Any]:
     # MCP-like schema for tools listing, with explicit JSON Schema metadata
     return {
