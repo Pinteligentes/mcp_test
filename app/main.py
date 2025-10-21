@@ -161,7 +161,21 @@ async def _handle_jsonrpc(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         # Accept method aliases used by some MCP clients
-        if method in ("tools/list", "tools.list"):
+        if method in ("initialize",):
+            # Minimal MCP initialize response
+            result = {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {"name": "digits-mcp", "version": "0.1.0"},
+                "capabilities": {
+                    # Declare tool capability; no extra options required
+                    "tools": {}
+                }
+            }
+            return _jsonrpc_result(req_id, result)
+        elif method in ("notifications/initialized", "notifications.initialized"):
+            # Acknowledge without payload
+            return _jsonrpc_result(req_id, {})
+        elif method in ("tools/list", "tools.list"):
             # Debug log for diagnostics
             try:
                 _last_debug["last_request"] = payload
