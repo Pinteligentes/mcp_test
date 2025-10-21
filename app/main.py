@@ -105,30 +105,18 @@ async def message(request: Request) -> Response:
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    if not isinstance(body, dict):
-        raise HTTPException(status_code=400, detail="Request body must be an object")
-
-    jsonrpc = body.get("jsonrpc")
-    method = body.get("method")
-    params = body.get("params") or {}
-    req_id = body.get("id")
-
-    if jsonrpc != "2.0":
-        return _jsonrpc_error(req_id, code=-32600, message="Invalid Request: jsonrpc must be '2.0'")
-
-    try:
-        if method == "tools/list":
-            result = _tools_list()
-            return _jsonrpc_result(req_id, result)
-        elif method == "tools/call":
-            result = await _tools_call(params)
-            return _jsonrpc_result(req_id, result)
-        else:
-            return _jsonrpc_error(req_id, code=-32601, message="Method not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        return _jsonrpc_error(req_id, code=-32000, message=f"Server error: {e}")
+    # Support single-object and batch (array) requests for compatibility
+    if isinstance(body, list):
+        results = []
+        for entry in body:
+            res = await _handle_jsonrpc(entry)
+            results.append(res.body)
+        return JSONResponse(results)
+    elif isinstance(body, dict):
+        res = await _handle_jsonrpc(body)
+        return res
+    else:
+        raise HTTPException(status_code=400, detail="Request body must be an object or array")
 
 
 # Some MCP clients POST to /sse for messages; support it by delegating to the same handler
