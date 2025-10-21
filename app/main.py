@@ -87,7 +87,14 @@ async def sse(client_id: Optional[str] = None) -> StreamingResponse:
         client_id = uuid.uuid4().hex
 
     generator = _sse_event_generator(client_id)
-    return StreamingResponse(generator, media_type="text/event-stream")
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # Minimal JSON-RPC 2.0 handler with MCP-like methods for tools
@@ -150,18 +157,23 @@ def _jsonrpc_error(req_id: Any, code: int, message: str, data: Optional[Any] = N
 
 
 def _tools_list() -> Dict[str, Any]:
-    # MCP-like schema for tools listing
+    # MCP-like schema for tools listing, with explicit JSON Schema metadata
     return {
         "tools": [
             {
                 "name": "reduce_digits",
                 "description": "Reduce an integer by summing its digits repeatedly until a single digit remains.",
                 "input_schema": {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "type": "object",
                     "properties": {
-                        "number": {"type": "integer", "description": "The number to reduce."}
+                        "number": {
+                            "type": "integer",
+                            "description": "The number to reduce to a single digit"
+                        }
                     },
-                    "required": ["number"]
+                    "required": ["number"],
+                    "additionalProperties": False
                 }
             }
         ]
