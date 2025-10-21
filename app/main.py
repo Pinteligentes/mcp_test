@@ -150,7 +150,7 @@ async def _handle_jsonrpc(payload: Dict[str, Any]) -> JSONResponse:
         return _jsonrpc_error(None, code=-32600, message="Invalid Request: expected object")
 
     # Be compatible with clients that omit 'jsonrpc' or 'id'
-    req_id = payload.get("id")
+    req_id = payload.get("id", 0)
     jsonrpc = payload.get("jsonrpc") or "2.0"
     method = payload.get("method")
     params = payload.get("params") or {}
@@ -161,10 +161,15 @@ async def _handle_jsonrpc(payload: Dict[str, Any]) -> JSONResponse:
     try:
         # Accept method aliases used by some MCP clients
         if method in ("tools/list", "tools.list"):
+            # Debug log for diagnostics
+            print("[MCP] tools/list request:", json.dumps(payload))
             result = _tools_list()
+            print("[MCP] tools/list response:", json.dumps(result))
             return _jsonrpc_result(req_id, result)
         elif method in ("tools/call", "tools.call"):
+            print("[MCP] tools/call request:", json.dumps(payload))
             result = await _tools_call(params)
+            print("[MCP] tools/call result:", json.dumps(result))
             return _jsonrpc_result(req_id, result)
         else:
             return _jsonrpc_error(req_id, code=-32601, message="Method not found")
