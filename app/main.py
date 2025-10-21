@@ -109,12 +109,12 @@ async def message(request: Request) -> Response:
     if isinstance(body, list):
         results = []
         for entry in body:
-            res = await _handle_jsonrpc(entry)
-            results.append(res.body)
+            res_obj = await _handle_jsonrpc(entry)
+            results.append(res_obj)
         return JSONResponse(results)
     elif isinstance(body, dict):
-        res = await _handle_jsonrpc(body)
-        return res
+        res_obj = await _handle_jsonrpc(body)
+        return JSONResponse(res_obj)
     else:
         raise HTTPException(status_code=400, detail="Request body must be an object or array")
 
@@ -125,26 +125,26 @@ async def sse_post(request: Request) -> Response:
     return await message(request)
 
 
-def _jsonrpc_result(req_id: Any, result: Any) -> JSONResponse:
-    return JSONResponse({
+def _jsonrpc_result(req_id: Any, result: Any) -> Dict[str, Any]:
+    return {
         "jsonrpc": "2.0",
         "id": req_id,
         "result": result,
-    })
+    }
 
 
-def _jsonrpc_error(req_id: Any, code: int, message: str, data: Optional[Any] = None) -> JSONResponse:
+def _jsonrpc_error(req_id: Any, code: int, message: str, data: Optional[Any] = None) -> Dict[str, Any]:
     err = {"code": code, "message": message}
     if data is not None:
         err["data"] = data
-    return JSONResponse({
+    return {
         "jsonrpc": "2.0",
         "id": req_id,
         "error": err,
-    })
+    }
 
 
-async def _handle_jsonrpc(payload: Dict[str, Any]) -> JSONResponse:
+async def _handle_jsonrpc(payload: Dict[str, Any]) -> Dict[str, Any]:
     # Handle a single JSON-RPC request object, returning a JSONResponse
     if not isinstance(payload, dict):
         return _jsonrpc_error(None, code=-32600, message="Invalid Request: expected object")
@@ -186,6 +186,7 @@ def _tools_list() -> Dict[str, Any]:
             {
                 "name": "reduce_digits",
                 "description": "Reduce an integer by summing its digits repeatedly until a single digit remains.",
+                "annotations": None,
                 "input_schema": {
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "type": "object",
