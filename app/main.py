@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from fastapi import FastAPI, Request, Response, HTTPException
@@ -80,9 +81,10 @@ async def _sse_event_generator(client_id: str) -> AsyncGenerator[bytes, None]:
 
 
 @app.get("/sse")
-async def sse(client_id: str) -> StreamingResponse:
+async def sse(client_id: Optional[str] = None) -> StreamingResponse:
+    # Make client_id optional to be compatible with generic MCP SSE clients
     if not client_id:
-        raise HTTPException(status_code=400, detail="client_id is required")
+        client_id = uuid.uuid4().hex
 
     generator = _sse_event_generator(client_id)
     return StreamingResponse(generator, media_type="text/event-stream")
@@ -120,6 +122,12 @@ async def message(request: Request) -> Response:
         raise
     except Exception as e:
         return _jsonrpc_error(req_id, code=-32000, message=f"Server error: {e}")
+
+
+# Some MCP clients POST to /sse for messages; support it by delegating to the same handler
+@app.post("/sse")
+async def sse_post(request: Request) -> Response:
+    return await message(request)
 
 
 def _jsonrpc_result(req_id: Any, result: Any) -> JSONResponse:
