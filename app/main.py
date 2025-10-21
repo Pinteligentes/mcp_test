@@ -239,36 +239,48 @@ async def handle_jsonrpc_one(payload: Dict[str, Any]) -> Dict[str, Any]:
         return json_error(req_id, -32000, f"Server error: {e}")
 
 def tools_list() -> Dict[str, Any]:
+    digits_schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "number": {"type": "integer", "description": "Número a reducir"}
+        },
+        "required": ["number"],
+        "additionalProperties": False,
+        "title": "DigitsInput"
+    }
+
+    echo_schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "text": {"type": "string", "description": "Texto a devolver"}
+        },
+        "required": ["text"],
+        "additionalProperties": False,
+        "title": "EchoInput"
+    }
+
+    def tool(name, desc, schema):
+        return {
+            "name": name,
+            "description": desc,
+            "inputSchema": schema,
+            "input_schema": schema
+        }
+
     return {
         "tools": [
-            {
-                "name": "digits",
-                "description": "Reduce un entero a un solo dígito sumando sus dígitos repetidamente.",
-                "annotations": None,
-                "input_schema": {
-                    "$schema": "https://json-schema.org/draft/2020-12/schema",
-                    "type": "object",
-                    "properties": {
-                        "number": {"type": "integer", "description": "Número a reducir"}
-                    },
-                    "required": ["number"],
-                    "additionalProperties": False
-                },
-            },
-            {
-                "name": "echo",
-                "description": "Devuelve el texto tal cual.",
-                "annotations": None,
-                "input_schema": {
-                    "$schema": "https://json-schema.org/draft/2020-12/schema",
-                    "type": "object",
-                    "properties": {
-                        "text": {"type": "string", "description": "Texto a devolver"}
-                    },
-                    "required": ["text"],
-                    "additionalProperties": False
-                },
-            },
+            tool(
+                "digits",
+                "Reduce un entero a un solo dígito sumando sus dígitos repetidamente.",
+                digits_schema
+            ),
+            tool(
+                "echo",
+                "Devuelve el texto tal cual.",
+                echo_schema
+            ),
         ]
     }
 
