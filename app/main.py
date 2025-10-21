@@ -23,6 +23,7 @@ app.add_middleware(
 # In-memory SSE client registry
 _clients: Dict[str, asyncio.Queue[str]] = {}
 _client_lock = asyncio.Lock()
+_last_debug: Dict[str, Any] = {"last_request": None, "last_response": None, "user_agent": None}
 
 HEARTBEAT_INTERVAL_SEC = 15
 
@@ -162,13 +163,29 @@ async def _handle_jsonrpc(payload: Dict[str, Any]) -> Dict[str, Any]:
         # Accept method aliases used by some MCP clients
         if method in ("tools/list", "tools.list"):
             # Debug log for diagnostics
+            try:
+                _last_debug["last_request"] = payload
+            except Exception:
+                pass
             print("[MCP] tools/list request:", json.dumps(payload))
             result = _tools_list()
+            try:
+                _last_debug["last_response"] = result
+            except Exception:
+                pass
             print("[MCP] tools/list response:", json.dumps(result))
             return _jsonrpc_result(req_id, result)
         elif method in ("tools/call", "tools.call"):
+            try:
+                _last_debug["last_request"] = payload
+            except Exception:
+                pass
             print("[MCP] tools/call request:", json.dumps(payload))
             result = await _tools_call(params)
+            try:
+                _last_debug["last_response"] = result
+            except Exception:
+                pass
             print("[MCP] tools/call result:", json.dumps(result))
             return _jsonrpc_result(req_id, result)
         else:
@@ -254,6 +271,16 @@ async def _emit_sse(client_id: str, payload: Dict[str, Any]) -> None:
         q = _clients.get(client_id)
     if q is not None:
         await q.put(json.dumps(payload))
+
+
+@app.get("/debug/last")
+async def debug_last(request: Request):
+    # Expose last MCP request/response observed (for troubleshooting only)
+    try:
+        _last_debug["user_agent"] = request.headers.get("user-agent")
+    except Exception:
+        pass
+    return _last_debug
 
 
 # Health check
